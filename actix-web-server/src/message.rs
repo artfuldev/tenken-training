@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 enum MessageType {
     SpaceCartography,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 enum MeasureCode {
     SCSED,
@@ -14,14 +14,14 @@ enum MeasureCode {
     LER,
     PLSE,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 enum MeasureType {
     Positioning,
     Composition,
     Probe,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 struct Measure {
     measureCode: MeasureCode,
@@ -29,7 +29,7 @@ struct Measure {
     componentReading: f32,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Message {
     pub probeId: String,
     eventId: String,
