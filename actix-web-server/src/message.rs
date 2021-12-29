@@ -25,9 +25,13 @@ enum MeasureType {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type")]
 struct Measure {
-    measureCode: MeasureCode,
-    measureType: MessageType, // This might also be derivable from measure code
-    componentReading: f32,
+    measureName: String,
+    measureCode: String,
+    measureUnit: String,
+    measureValue: f64,
+    measureValueDescription: String,
+    measureType: String,
+    componentReading: f64
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
