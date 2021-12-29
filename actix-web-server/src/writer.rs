@@ -1,4 +1,4 @@
-use std::{fs::{File, OpenOptions}, io, result::Result};
+use std::{fs::{File, OpenOptions}, io, result::Result, sync::atomic::{AtomicU8, Ordering}};
 use serde_json::{to_string};
 use actix::{Actor, ActorContext, ActorState, Handler, Message};
 use std::io::Write;
@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::dto::ProbeData;
 
+static WORKER_COUNT: AtomicU8 = AtomicU8::new(0);
 
 pub struct Writer {
     state: ActorState,
@@ -13,16 +14,17 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new() -> io::Result<Self> {
+    pub fn new() -> Self {
       let file = OpenOptions::new()
         .write(true)
         .append(true)
         .create(true)
-        .open("db.dat")?;
-      Ok(Writer {
+        .open(format!("{}.db.dat", WORKER_COUNT.fetch_add(1, Ordering::Acquire)))
+        .unwrap();
+      Writer {
           state: ActorState::Started,
           file,
-      })
+      }
     }
 }
 

@@ -76,16 +76,11 @@ async fn main() -> std::io::Result<()> {
             }
         }
     }
-    let writer = Data::new(Writer::new()?.start());
     let cache = Data::new(_cache);
     HttpServer::new(move || {
-        let eight_bytes = 8192;
-        let json_config = JsonConfig::default().limit(eight_bytes);
-
         App::new()
-            .app_data(json_config)
             .app_data(cache.clone())
-            .app_data(writer.clone())
+            .app_data(Data::new(Writer::new().start()))
             .service(hello)
             .service(store_message)
             .service(get_message)
