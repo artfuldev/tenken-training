@@ -32,7 +32,7 @@ struct Measure {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Message {
     pub probeId: String,
-    eventId: String,
+    pub eventId: String,
     messageType: String,
     // eventReceivedTime: std::time::SystemTime,
     // eventTransmissionTime: std::time::SystemTime,
