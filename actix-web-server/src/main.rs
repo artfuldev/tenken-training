@@ -1,3 +1,4 @@
+use actix::{Addr, Actor};
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use chashmap::CHashMap;
 use std::io::{self, *};
@@ -7,7 +8,9 @@ use web::*;
 use serde_json::{to_string, from_str};
 
 mod dto;
+mod writer;
 use crate::dto::{ProbeData, ProbeRequest, ProbeResponse};
+use crate::writer::{Writer, ProbePayloadReceived};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -18,17 +21,14 @@ async fn hello() -> impl Responder {
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
     json: Json<ProbeRequest>,
-    app_data: Data<CHashMap<String, ProbeData>>,
+    cache: Data<CHashMap<String, ProbeData>>,
+    writer: Data<Addr<Writer>>
 ) -> impl Responder {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open("db.dat")
-        .unwrap();
     let data = ProbeData::from(json.into_inner());
-    match writeln!(file, "{}:::{}", probe_id, to_string(&data).unwrap()) {
+    let result = writer.send(ProbePayloadReceived::new(probe_id.clone(), data.clone())).await.unwrap();
+    match result {
         Ok(_) =>  {
-            app_data.insert(probe_id, data);
+            cache.insert(probe_id, data);
             HttpResponse::Accepted().body("")
         },
         Err(e) => {
@@ -42,9 +42,9 @@ async fn store_message(
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    app_data: Data<CHashMap<String, ProbeData>>,
+    cache: Data<CHashMap<String, ProbeData>>,
 ) -> impl Responder {
-      app_data
+      cache
         .get(&probe_id)
         .map(|x| x.deref().clone())
         .map(ProbeResponse::from)
@@ -57,13 +57,13 @@ async fn get_message(
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where P: AsRef<std::path::Path>, {
-    let file = File::open(filename)?;
+    let file = OpenOptions::new().read(true).create(true).open(filename.as_ref())?;
     Ok(io::BufReader::new(file).lines())
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let state = CHashMap::new();
+    let _cache = CHashMap::new();
     if let Ok(lines) = read_lines("db.dat") {
         for line in lines {
             if let Ok(entry) = line {
@@ -72,18 +72,20 @@ async fn main() -> std::io::Result<()> {
                 let value = splits[1];
                 println!("reading probe id {} data {}", key, value);
                 let data: ProbeData = from_str(value).unwrap();
-                state.insert(key.to_string(), data);
+                _cache.insert(key.to_string(), data);
             }
         }
     }
-    let initial_state = Data::new(state);
+    let writer = Data::new(Writer::new()?.start());
+    let cache = Data::new(_cache);
     HttpServer::new(move || {
         let eight_bytes = 8192;
         let json_config = JsonConfig::default().limit(eight_bytes);
 
         App::new()
             .app_data(json_config)
-            .app_data(initial_state.clone())
+            .app_data(cache.clone())
+            .app_data(writer.clone())
             .service(hello)
             .service(store_message)
             .service(get_message)
