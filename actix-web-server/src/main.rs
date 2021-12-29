@@ -6,8 +6,8 @@ use std::ops::Deref;
 use web::*;
 use serde_json::{to_string, from_str};
 
-mod message;
-use crate::message::{Message, Payload};
+mod dto;
+use crate::dto::{ProbeData, ProbeRequest, ProbeResponse};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -17,19 +17,19 @@ async fn hello() -> impl Responder {
 #[post("/probe/{probe_id}/event/{event_id}")]
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
-    json: Json<Payload>,
-    app_data: Data<CHashMap<String, Message>>,
+    json: Json<ProbeRequest>,
+    app_data: Data<CHashMap<String, ProbeData>>,
 ) -> impl Responder {
     let mut file = OpenOptions::new()
         .write(true)
         .append(true)
         .open("db.dat")
         .unwrap();
-    let message = Message::from(json.into_inner());
-    match writeln!(file, "{}:::{}", probe_id, to_string(&message).unwrap()) {
+    let data = ProbeData::from(json.into_inner());
+    match writeln!(file, "{}:::{}", probe_id, to_string(&data).unwrap()) {
         Ok(_) =>  {
-            app_data.insert(probe_id, message);
-            HttpResponse::Ok().body("Created")
+            app_data.insert(probe_id, data);
+            HttpResponse::Accepted().body("")
         },
         Err(e) => {
             let body = format!("Couldn't write to file: {}", e);
@@ -42,10 +42,17 @@ async fn store_message(
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    app_data: Data<CHashMap<String, Message>>,
+    app_data: Data<CHashMap<String, ProbeData>>,
 ) -> impl Responder {
-    let data = app_data.get(&probe_id);
-    HttpResponse::Ok().body(data.map(|x| x.deref().eventId.clone()).unwrap_or_default())
+      app_data
+        .get(&probe_id)
+        .map(|x| x.deref().clone())
+        .map(ProbeResponse::from)
+        .map(|x| to_string(&x))
+        .map(|x| match x { Ok(y) => Some(y), Err(_) => None })
+        .flatten()
+        .map(|x| HttpResponse::Ok().body(x))
+        .unwrap_or(HttpResponse::NotFound().body(""))
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -63,9 +70,9 @@ async fn main() -> std::io::Result<()> {
                 let splits = entry.split(":::").collect::<Vec<&str>>();
                 let key = splits[0];
                 let value = splits[1];
-                println!("reading probe id {} message {}", key, value);
-                let message: Message = from_str(value).unwrap();
-                state.insert(key.to_string(), message);
+                println!("reading probe id {} data {}", key, value);
+                let data: ProbeData = from_str(value).unwrap();
+                state.insert(key.to_string(), data);
             }
         }
     }
