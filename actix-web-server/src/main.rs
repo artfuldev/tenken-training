@@ -7,7 +7,7 @@ use web::*;
 use serde_json::{to_string, from_str};
 
 mod message;
-use crate::message::Message;
+use crate::message::{Message, Payload};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -17,7 +17,7 @@ async fn hello() -> impl Responder {
 #[post("/probe/{probe_id}/event/{event_id}")]
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
-    json: Json<Message>,
+    json: Json<Payload>,
     app_data: Data<CHashMap<String, Message>>,
 ) -> impl Responder {
     let mut file = OpenOptions::new()
@@ -25,7 +25,7 @@ async fn store_message(
         .append(true)
         .open("db.dat")
         .unwrap();
-    let message = json.into_inner();
+    let message = Message::from(json.into_inner());
     match writeln!(file, "{}:::{}", probe_id, to_string(&message).unwrap()) {
         Ok(_) =>  {
             app_data.insert(probe_id, message);
