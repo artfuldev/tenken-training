@@ -32,7 +32,7 @@ async fn store_message(
             HttpResponse::Accepted().body("")
         },
         Err(e) => {
-            let body = format!("Couldn't write to file: {}", e);
+            let body = format!("Couldn't write to file: {:?}", e);
             eprintln!("{}", body);
             HttpResponse::InternalServerError().body(body)
         }
