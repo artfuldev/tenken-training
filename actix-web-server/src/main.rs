@@ -40,7 +40,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_message)
     })
     .bind("127.0.0.1:8080")?
-    .workers(8)
+    .workers(4)
     .run()
     .await
 }
