@@ -1,7 +1,6 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use std::collections::HashMap;
+use chashmap::CHashMap;
 use std::ops::Deref;
-use std::sync::Mutex;
 use web::*;
 use serde_json::{to_string};
 mod dto;
@@ -16,21 +15,19 @@ async fn hello() -> impl Responder {
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
     json: Json<ProbeRequest>,
-    cache: Data<Mutex<HashMap<String, ProbeData>>>,
+    cache: Data<CHashMap<String, ProbeData>>,
 ) -> impl Responder {
     let data = ProbeData::from(json.into_inner());
-    cache.lock().unwrap().insert(probe_id, data);
+    cache.insert(probe_id, data);
     HttpResponse::Accepted().body("")
 }
 
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    cache: Data<Mutex<HashMap<String, ProbeData>>>,
+    cache: Data<CHashMap<String, ProbeData>>,
 ) -> impl Responder {
       cache
-        .lock()
-        .unwrap()
         .get(&probe_id)
         .map(|x| x.deref().clone())
         .map(ProbeResponse::from)
@@ -43,7 +40,7 @@ async fn get_message(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let cache = Data::new(Mutex::new(HashMap::<String, ProbeData>::new()));
+    let cache = Data::new(CHashMap::<String, ProbeData>::new());
     HttpServer::new(move || {
         App::new()
             .app_data(cache.clone())
