@@ -1,7 +1,6 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, dev::Body};
 use chashmap::CHashMap;
 use web::*;
-mod dto;
 
 
 #[get("/")]
