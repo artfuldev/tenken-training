@@ -1,10 +1,8 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, dev::Body};
 use chashmap::CHashMap;
-use std::ops::Deref;
 use web::*;
-use serde_json::{to_string};
 mod dto;
-use crate::dto::{ProbeData, ProbeRequest, ProbeResponse};
+
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -13,34 +11,29 @@ async fn hello() -> impl Responder {
 
 #[post("/probe/{probe_id}/event/{event_id}")]
 async fn store_message(
-    Path((probe_id, _)): Path<(String, String)>,
-    json: Json<ProbeRequest>,
-    cache: Data<CHashMap<String, ProbeData>>,
+  Path((probe_id, _)): Path<(String, String)>,
+  text: String,
+  cache: Data<CHashMap<String, String>>,
 ) -> impl Responder {
-    let data = ProbeData::from(json.into_inner());
-    cache.insert(probe_id, data);
-    HttpResponse::Accepted().body("")
+  cache.insert(probe_id, text);
+  HttpResponse::Accepted().body(Body::Empty)
 }
 
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    cache: Data<CHashMap<String, ProbeData>>,
+    cache: Data<CHashMap<String, String>>,
 ) -> impl Responder {
       cache
         .get(&probe_id)
-        .map(|x| x.deref().clone())
-        .map(ProbeResponse::from)
-        .map(|x| to_string(&x))
-        .map(|x| match x { Ok(y) => Some(y), Err(_) => None })
-        .flatten()
+        .map(|x| x.clone())
         .map(|x| HttpResponse::Ok().body(x))
-        .unwrap_or(HttpResponse::NotFound().body(""))
+        .unwrap_or(HttpResponse::NotFound().body(Body::Empty))
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let cache = Data::new(CHashMap::<String, ProbeData>::new());
+    let cache = Data::new(CHashMap::<String, String>::new());
     HttpServer::new(move || {
         App::new()
             .app_data(cache.clone())
