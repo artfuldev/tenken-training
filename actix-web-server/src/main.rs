@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use web::*;
 use serde_json::{to_string};
 mod dto;
-mod writer;
 use crate::dto::{ProbeData, ProbeRequest, ProbeResponse};
 
 #[get("/")]
