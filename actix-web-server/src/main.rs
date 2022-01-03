@@ -1,5 +1,6 @@
+use std::sync::Mutex;
 use actix_web::{dev::Body, get, post, web, App, HttpResponse, HttpServer, Responder};
-use chashmap::CHashMap;
+use fxhash::FxHashMap;
 use web::*;
 
 #[get("/")]
@@ -11,18 +12,20 @@ async fn hello() -> impl Responder {
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
     text: String,
-    cache: Data<CHashMap<String, String>>,
+    cache: Data<Mutex<FxHashMap<String, String>>>,
 ) -> impl Responder {
-    cache.insert(probe_id, text);
+    cache.lock().unwrap().insert(probe_id, text);
     HttpResponse::Accepted().body(Body::Empty)
 }
 
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    cache: Data<CHashMap<String, String>>,
+    cache: Data<Mutex<FxHashMap<String, String>>>,
 ) -> impl Responder {
     cache
+        .lock()
+        .unwrap()
         .get(&probe_id)
         .map(|x| x.clone())
         .map(|x| HttpResponse::Ok().body(x))
@@ -31,7 +34,7 @@ async fn get_message(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let cache = Data::new(CHashMap::<String, String>::new());
+    let cache = Data::new(Mutex::new(FxHashMap::<String, String>::default()));
     HttpServer::new(move || {
         App::new()
             .app_data(cache.clone())
