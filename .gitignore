@@ -6,8 +6,3 @@
 **/*.rs.bk
 
 **/db.dat
-
-.fake
-.ionide
-**/bin
-**/obj
