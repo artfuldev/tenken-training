@@ -16,7 +16,8 @@ async fn store_message(
     text: String,
     db: Data<Mutex<Tenken>>,
 ) -> impl Responder {
-    db.lock().unwrap().put(probe_id, text);
+    db.lock().unwrap()
+        .put(probe_id, text);
     HttpResponse::Accepted().body(Body::Empty)
 }
 
@@ -25,9 +26,7 @@ async fn get_message(
     Path(probe_id): Path<String>,
     db: Data<Mutex<Tenken>>,
 ) -> impl Responder {
-    db
-        .lock()
-        .unwrap()
+    db.lock().unwrap()
         .get(probe_id)
         .map(|x| HttpResponse::Ok().body(x))
         .unwrap_or(HttpResponse::NotFound().body(Body::Empty))
