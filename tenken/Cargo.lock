@@ -264,14 +264,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-web-server"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "fxhash",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1391,6 +1383,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "tenken"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "fxhash",
 ]
 
 [[package]]

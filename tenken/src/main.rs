@@ -42,7 +42,7 @@ async fn main() -> std::io::Result<()> {
             .service(store_message)
             .service(get_message)
     })
-    .bind("127.0.0.1:8080")?
+    .bind("0.0.0.0:8080")?
     .workers(4)
     .run()
     .await
