@@ -1,7 +1,9 @@
 use std::sync::Mutex;
 use actix_web::{dev::Body, get, post, web, App, HttpResponse, HttpServer, Responder};
-use fxhash::FxHashMap;
 use web::*;
+
+mod db;
+use crate::db::*;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -12,32 +14,31 @@ async fn hello() -> impl Responder {
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
     text: String,
-    cache: Data<Mutex<FxHashMap<String, String>>>,
+    db: Data<Mutex<Tenken>>,
 ) -> impl Responder {
-    cache.lock().unwrap().insert(probe_id, text);
+    db.lock().unwrap().put(probe_id, text);
     HttpResponse::Accepted().body(Body::Empty)
 }
 
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    cache: Data<Mutex<FxHashMap<String, String>>>,
+    db: Data<Mutex<Tenken>>,
 ) -> impl Responder {
-    cache
+    db
         .lock()
         .unwrap()
-        .get(&probe_id)
-        .map(|x| x.clone())
+        .get(probe_id)
         .map(|x| HttpResponse::Ok().body(x))
         .unwrap_or(HttpResponse::NotFound().body(Body::Empty))
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let cache = Data::new(Mutex::new(FxHashMap::<String, String>::default()));
+    let db = Data::new(Mutex::new(Tenken::default()));
     HttpServer::new(move || {
         App::new()
-            .app_data(cache.clone())
+            .app_data(db.clone())
             .service(hello)
             .service(store_message)
             .service(get_message)
