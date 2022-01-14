@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 use actix_web::{dev::Body, get, post, web, App, HttpResponse, HttpServer, Responder};
 use web::*;
 
@@ -14,9 +14,9 @@ async fn hello() -> impl Responder {
 async fn store_message(
     Path((probe_id, _)): Path<(String, String)>,
     text: String,
-    db: Data<Mutex<Tenken>>,
+    db: Data<RwLock<Tenken>>,
 ) -> impl Responder {
-    db.lock().unwrap()
+    db.write().unwrap()
         .put(probe_id, text);
     HttpResponse::Accepted().body(Body::Empty)
 }
@@ -24,9 +24,9 @@ async fn store_message(
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
     Path(probe_id): Path<String>,
-    db: Data<Mutex<Tenken>>,
+    db: Data<RwLock<Tenken>>,
 ) -> impl Responder {
-    db.lock().unwrap()
+    db.read().unwrap()
         .get(probe_id)
         .map(|x| HttpResponse::Ok().body(x))
         .unwrap_or(HttpResponse::NotFound().body(Body::Empty))
@@ -34,7 +34,7 @@ async fn get_message(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let db = Data::new(Mutex::new(Tenken::default()));
+    let db = Data::new(RwLock::new(Tenken::default()));
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
