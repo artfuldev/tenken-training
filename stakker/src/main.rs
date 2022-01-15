@@ -1,120 +1,246 @@
-use stakker::*;
-use std::time::{Instant, Duration};
+//! This demonstrates a TCP echo server.  It listens for connections
+//! on port 7777.  Each connection is handled by a separate actor.
+//! This actor just sends back whatever data it receives over TCP.
+//!
+//! However to make things a little more interesting, some additional
+//! processing is performed:
+//!
+//! - All echos are delayed by one second.
+//!
+//! - If the character '!' is passed, then the actor terminates the
+//!   TCP connection and shuts down.  All other TCP connections
+//!   continue as normal though.
+//!
+//! - If the character '%' is passed, this causes the actor to fail,
+//!   passing an `AbortError` back to the listener.  The listener
+//!   detects this particular kind of failure, and shuts down the
+//!   whole server.
+//!
+//! - The server will shut down if there is no incoming connection for
+//!   60 seconds
+//!
+//! Start the example, and then connect using `telnet 127.0.0.1 7777`.
+//! Many `telnet` sessions can be handled at the same time.
 
-// An actor is represented as a struct which holds the actor state
-struct Light {
-    start: Instant,
-    on: bool,
-}
+use stakker::{
+    actor, actor_in_slab, fail, fwd_to, ret_shutdown, ret_some_to, stop, timer_max, call,
+    ActorOwnSlab, MaxTimerKey, Stakker, StopCause, CX,
+};
+use stakker_mio::mio::net::{TcpListener, TcpStream};
+use stakker_mio::mio::{Events, Interest, Poll};
+use stakker_mio::{MioPoll, MioSource, ReadStatus, Ready, TcpStreamBuf};
 
-impl Light {
-    // This is a "Prep" method which is used to create a Self value
-    // for the actor.  `cx` is the actor context and gives access to
-    // Stakker `Core`.  (`CX![]` expands to `&mut Cx<'_, Self>`.)
-    // A "Prep" method doesn't have to return a Self value right away.
-    // For example it might asynchronously attempt a connection to a
-    // remote server first before arranging a call to another "Prep"
-    // function which returns the Self value.  Once a value is returned,
-    // the actor is "Ready" and any queued-up operations on the actor
-    // will be executed.
-    pub fn init(cx: CX![]) -> Option<Self> {
-        // Use cx.now() instead of Instant::now() to allow execution
-        // in virtual time if supported by the environment.
-        let start = cx.now();
-        Some(Self { start, on: false })
+use std::error::Error;
+use std::fmt;
+use std::io::ErrorKind;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::time::{Duration, Instant};
+
+const PORT: u16 = 7777;
+
+// Here fatal top-level MIO failures are returned from main.  All
+// other I/O failures are handled as actor failure.
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut stakker = Stakker::new(Instant::now());
+    let s = &mut stakker;
+    let miopoll = MioPoll::new(s, Poll::new()?, Events::with_capacity(1024), 0)?;
+
+    let _listener = actor!(s, Listener::init(), ret_shutdown!(s));
+
+    // Don't need `idle!` handling
+    s.run(Instant::now(), false);
+    while s.not_shutdown() {
+        let maxdur = s.next_wait_max(Instant::now(), Duration::from_secs(60), false);
+        miopoll.poll(maxdur)?;
+        s.run(Instant::now(), false);
     }
 
-    // Methods that may be called once the actor is "Ready" have a
-    // `&mut self` or `&self` first argument.
-    pub fn set(&mut self, cx: CX![], on: bool) {
-        self.on = on;
-        let time = cx.now() - self.start;
-        println!(
-            "{:04}.{:03} Light on: {}",
-            time.as_secs(),
-            time.subsec_millis(),
-            on
+    println!("Shutdown: {}", s.shutdown_reason().unwrap());
+    Ok(())
+}
+
+/// Listens for incoming TCP connections
+struct Listener {
+    children: ActorOwnSlab<Echoer>,
+    listener: MioSource<TcpListener>,
+    inactivity: MaxTimerKey,
+}
+
+impl Listener {
+    fn init(cx: CX![]) -> Option<Self> {
+        match Self::setup(cx) {
+            Err(e) => {
+                fail!(cx, "Listening socket setup failed on port {}: {}", PORT, e);
+                None
+            }
+            Ok(this) => Some(this),
+        }
+    }
+
+    fn setup(cx: CX![]) -> std::io::Result<Self> {
+        let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, PORT);
+        let listen = TcpListener::bind(SocketAddr::V4(addr))?;
+        let miopoll = cx.anymap_get::<MioPoll>();
+        let listener = miopoll.add(
+            listen,
+            Interest::READABLE,
+            10,
+            fwd_to!([cx], connect() as (Ready)),
+        )?;
+        println!("Listening on port 7777 for incoming telnet connections ...");
+
+        let mut this = Self {
+            listener,
+            children: ActorOwnSlab::new(),
+            inactivity: MaxTimerKey::default(),
+        };
+        this.activity(cx);
+
+        Ok(this)
+    }
+
+    // Register activity, pushing back the inactivity timer
+    fn activity(&mut self, cx: CX![]) {
+        timer_max!(
+            &mut self.inactivity,
+            cx.now() + Duration::from_secs(60),
+            [cx],
+            |_this, cx| {
+                fail!(cx, "Timed out waiting for connection");
+            }
         );
     }
 
-    // A `Fwd` or `Ret` allows passing data to arbitrary destinations,
-    // like an async callback.  Here we use it to return a value.
-    pub fn query(&self, cx: CX![], ret: Ret<bool>) {
-        ret!([ret], self.on);
+    fn connect(&mut self, cx: CX![], _: Ready) {
+        loop {
+            match self.listener.accept() {
+                Ok((stream, addr)) => {
+                    println!("New connection from {}", addr);
+                    actor_in_slab!(
+                        self.children,
+                        cx,
+                        Echoer::init(stream),
+                        ret_some_to!([cx], |_this, cx, cause: StopCause| {
+                            // Mostly just report child failure, but watch out for
+                            // AbortError to terminate this actor, which in turn shuts
+                            // down the whole process
+                            println!("Child actor terminated: {}", cause);
+
+                            if let StopCause::Failed(e) = cause {
+                                if e.downcast::<AbortError>().is_ok() {
+                                    fail!(cx, "Aborted");
+                                }
+                            }
+                        })
+                    );
+                    self.activity(cx);
+                }
+                Err(ref e) if e.kind() == ErrorKind::WouldBlock => break,
+                Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                Err(e) => {
+                    fail!(cx, "TCP listen socket failure on accept: {}", e);
+                    return;
+                }
+            }
+        }
     }
 }
 
-// This is another actor that holds a reference to a Light actor.
-struct Flasher {
-    light: Actor<Light>,
-    interval: Duration,
-    count: usize,
+static RESPONSE: &str = "HTTP/1.1 202 Accepted\r\nContent-Type: text/html\r\nConnection: keep-alive\r\nContent-Length: 0\r\n";
+
+/// Echoes received data back to sender, with a delay
+struct Echoer {
+    tcp: TcpStreamBuf,
 }
 
-impl Flasher {
-    pub fn init(cx: CX![], light: Actor<Light>, interval: Duration, count: usize) -> Option<Self> {
-        // Defer first switch to the queue
-        call!([cx], switch(true));
-        Some(Self {
-            light,
-            interval,
-            count,
-        })
+impl Echoer {
+    fn init(cx: CX![], stream: TcpStream) -> Option<Self> {
+        match Self::setup(cx, stream) {
+            Err(e) => {
+                fail!(cx, "Failed to set up a new TCP stream: {}", e);
+                None
+            }
+            Ok(this) => Some(this),
+        }
     }
 
-    pub fn switch(&mut self, cx: CX![], on: bool) {
-        // Change the light state
-        call!([self.light], set(on));
+    fn setup(cx: CX![], stream: TcpStream) -> std::io::Result<Self> {
+        let miopoll = cx.anymap_get::<MioPoll>();
+        let source = miopoll.add(
+            stream,
+            Interest::READABLE | Interest::WRITABLE,
+            10,
+            fwd_to!([cx], ready() as (Ready)),
+        )?;
 
-        self.count -= 1;
-        if self.count != 0 {
-            // Call switch again after a delay
-            after!(self.interval, [cx], switch(!on));
-        } else {
-            // Terminate the actor successfully, causing StopCause handler to run
-            cx.stop();
+        let mut tcp = TcpStreamBuf::new();
+        tcp.init(source);
+
+        Ok(Self { tcp })
+    }
+
+    fn ready(&mut self, cx: CX![], ready: Ready) {
+        if ready.is_readable() {
+            loop {
+                match self.tcp.read(20480) {
+                    ReadStatus::NewData => {
+                        let data = self.tcp.inp[self.tcp.rd..self.tcp.wr].to_vec();
+                        self.tcp.rd = self.tcp.wr;
+                        call!([cx], send_data(RESPONSE.as_bytes().to_vec()));
+                        call!([cx], send_eof());
+                        continue;
+                    }
+                    ReadStatus::WouldBlock => (),
+                    ReadStatus::EndOfStream => {
+                    }
+                    ReadStatus::Error(e) => {
+                        fail!(cx, "Read failure on TCP stream: {}", e);
+                    }
+                }
+                break;
+            }
         }
 
-        // Query the light state, receiving the response in the method
-        // `recv_state`, which has both fixed and forwarded arguments.
-        let ret = ret_some_to!([cx], recv_state(self.count) as (bool));
-        call!([self.light], query(ret));
+        if ready.is_writable() {
+            self.flush(cx);
+        }
     }
 
-    fn recv_state(&self, _: CX![], count: usize, state: bool) {
-        println!("  (at count {} received: {})", count, state);
+    fn send_data(&mut self, cx: CX![], data: Vec<u8>) {
+        self.tcp.out.extend_from_slice(&data);
+        self.flush(cx);
+    }
+
+    fn send_eof(&mut self, cx: CX![]) {
+        self.tcp.out_eof = true;
+        self.flush(cx);
+    }
+
+    fn flush(&mut self, cx: CX![]) {
+        if let Err(e) = self.tcp.flush() {
+            fail!(cx, "Write failure on TCP stream: {}", e);
+        }
+        if self.tcp.out_eof && self.tcp.out.is_empty() {
+            stop!(cx); // Stop actor when output is complete
+        }
+    }
+
+    fn check_special_chars(&mut self, cx: CX![], data: &[u8]) {
+        if data.contains(&b'!') {
+            self.tcp.out_eof = true;
+            self.flush(cx);
+        }
+        if data.contains(&b'%') {
+            fail!(cx, AbortError);
+        }
     }
 }
 
-fn main() {
-    let mut stakker0 = Stakker::new(Instant::now());
-    let stakker = &mut stakker0;
-
-    // Create and initialise the Light and Flasher actors.  The
-    // Flasher actor is given a reference to the Light.  Use a
-    // StopCause handler to shutdown when the Flasher terminates.
-    let light = actor!(stakker, Light::init(), ret_nop!());
-    let _flasher = actor!(
-        stakker,
-        Flasher::init(light.clone(), Duration::from_millis(10), 6),
-        ret_shutdown!(stakker)
-    );
-
-    // Since we're not in virtual time, we use `Instant::now()` in
-    // this loop, which is then passed on to all the actors as
-    // `cx.now()`.  (If you want to run time faster or slower you
-    // could use another source of time.)  So all calls in a batch of
-    // processing get the same `cx.now()` value.  Also note that
-    // `Instant::now()` uses a Mutex on some platforms so it saves
-    // cycles to call it less often.
-    stakker.run(Instant::now(), false);
-    while stakker.not_shutdown() {
-        // Wait for next timer to expire.  Here there's no I/O polling
-        // required to wait for external events, so just `sleep`
-        let maxdur = stakker.next_wait_max(Instant::now(), Duration::from_millis(0), false);
-        std::thread::sleep(maxdur);
-
-        // Run queue and timers
-        stakker.run(Instant::now(), false);
+#[derive(Debug)]
+struct AbortError;
+impl Error for AbortError {}
+impl fmt::Display for AbortError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "AbortError")
     }
 }

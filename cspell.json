@@ -5,6 +5,8 @@
     "tenken",
     "datom",
     "actix",
-    "stakker"
+    "stakker",
+    "miopoll",
+    "anymap"
   ]
 }

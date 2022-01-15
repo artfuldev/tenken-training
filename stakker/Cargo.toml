@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 stakker = "0.2.4"
+stakker_mio = "0.2.3"
