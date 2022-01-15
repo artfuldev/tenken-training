@@ -7,7 +7,7 @@ use crate::db::*;
 
 #[get("/")]
 async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Tenken Web Server")
+    HttpResponse::Ok().body("hello")
 }
 
 #[post("/probe/{probe_id}/event/{event_id}")]
