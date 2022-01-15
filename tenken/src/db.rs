@@ -1,28 +1,32 @@
 use fxhash::FxHashMap;
-use actix::{Actor, Message, Handler};
+use actix::{Actor, Message, Handler, Addr};
 use thiserror::Error;
+use crate::writer::{Writer, Log};
 
 pub trait Database<K, V> {
     fn get(&self, key: K) -> Option<V>;
     fn put(&mut self, key: K, value: V) -> ();
 }
 
-pub struct Tenken {
+pub(crate) struct Tenken {
+    writer: Addr<Writer>,
     cache: FxHashMap<String, String>
 }
 
-impl Default for Tenken {
-    fn default() -> Self {
-        Tenken { cache: FxHashMap::<String, String>::default() }
+impl Tenken {
+    pub fn new(writer: Addr<Writer>) -> Self {
+        Tenken { writer, cache: FxHashMap::<String, String>::default() }
     }
 }
 
 impl Database<String, String> for Tenken {
     fn get(&self, key: String) -> Option<String> {
+        self.writer.do_send(Log::Debug(format!("get {}", key)));
         self.cache.get(&key).map(|x| x.clone())
     }
 
     fn put(&mut self, key: String, value: String) -> () {
+        self.writer.do_send(Log::WriteAhead(format!("db:::{}:::{}", key, value)));
         self.cache.insert(key, value);
     }
 }

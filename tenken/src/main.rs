@@ -1,9 +1,14 @@
+use std::sync::Arc;
+
 use actix::{Actor, Addr};
-use actix_web::{dev::Body, get, post, web, App, HttpResponse, HttpServer, Responder};
-use web::*;
+use actix_web::{get, post, App, HttpServer, Responder};
+use actix_web::web::{Path, HttpResponse, Data};
 
 mod db;
+mod stakker;
+mod writer;
 use crate::db::*;
+use crate::writer::Writer;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -12,35 +17,39 @@ async fn hello() -> impl Responder {
 
 #[post("/probe/{probe_id}/event/{event_id}")]
 async fn store_message(
-    Path((probe_id, _)): Path<(String, String)>,
+    path: Path<(String, String)>,
     payload: String,
     db: Data<Addr<Tenken>>,
 ) -> impl Responder {
+    let (probe_id, _) = path.into_inner();
     db.do_send(ProbePayloadReceived::new(probe_id, payload));
-    HttpResponse::Accepted().body(Body::Empty)
+    HttpResponse::Accepted().body(())
 }
 
 #[get("/probe/{probe_id}/latest")]
 async fn get_message(
-    Path(probe_id): Path<String>,
+    path: Path<String>,
     db: Data<Addr<Tenken>>,
 ) -> impl Responder {
+    let probe_id = path.into_inner();
     match db.send(ProbeRequestReceived::new(probe_id)).await {
         Ok(response) =>
             match response {
                 Ok(result) =>
                     result
                         .map(|x| HttpResponse::Ok().content_type("application/json").body(x))
-                        .unwrap_or(HttpResponse::NotFound().body(Body::Empty)),
-                Err(_) => HttpResponse::InternalServerError().body(Body::Empty)
+                        .unwrap_or(HttpResponse::NotFound().body(())),
+                Err(_) => HttpResponse::InternalServerError().body(())
             },
-        Err(_) => HttpResponse::InternalServerError().body(Body::Empty)
+        Err(_) => HttpResponse::InternalServerError().body(())
     }
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let db = Data::new(Tenken::default().start());
+    let writer = Writer::default().start();
+    let db = Data::new(Tenken::new(writer.clone()).start());
+    std::thread::spawn(move || stakker::main(writer.clone()));
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
