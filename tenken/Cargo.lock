@@ -243,12 +243,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anymap"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
-
-[[package]]
 name = "autocfg"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -837,15 +831,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qcell"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e2b4c7d8d615d32bb11eb895985dab6a136958fb35cbc46d44c2b7efee8ba9a"
-dependencies = [
- "once_cell",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1033,24 +1018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stakker"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d66bd9fea7ae77a95c9f684f4cb502496dd01c490fdcbc7e0b598beb61279f7"
-dependencies = [
- "anymap",
- "qcell",
- "slab",
- "static_assertions",
-]
-
-[[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
 name = "syn"
 version = "1.0.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1069,7 +1036,6 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "fxhash",
- "stakker",
  "thiserror",
 ]
 

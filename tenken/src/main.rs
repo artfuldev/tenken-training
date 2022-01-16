@@ -1,14 +1,13 @@
-use std::sync::Arc;
-
 use actix::{Actor, Addr};
 use actix_web::{get, post, App, HttpServer, Responder};
 use actix_web::web::{Path, HttpResponse, Data};
 
 mod db;
-mod stakker;
 mod writer;
+mod tick;
 use crate::db::*;
 use crate::writer::Writer;
+use crate::tick::Tick;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -47,7 +46,9 @@ async fn get_message(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let db = Data::new(Tenken::new(Writer::default().start()).start());
+    let writer = Writer::default().start();
+    let _ = Tick::new(writer.clone()).start();
+    let db = Data::new(Tenken::new(writer.clone()).start());
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
@@ -56,7 +57,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_message)
     })
     .bind("0.0.0.0:8080")?
-    .workers(4)
+    .workers(1)
     .run()
     .await
 }
