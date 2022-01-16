@@ -11,7 +11,8 @@ impl Default for Writer {
     fn default() -> Self {
         Writer {
             file:
-                BufWriter::new(
+                BufWriter::with_capacity(
+                    4 * 1024 * 1024 * 1024 / 30 / 10,
                     OpenOptions::new()
                         .write(true)
                         .append(true)
