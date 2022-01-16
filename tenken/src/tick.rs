@@ -1,6 +1,5 @@
 use std::time::Duration;
 use actix::{Actor, Addr, Context, ActorStreamExt, ContextFutureSpawner};
-use thiserror::Error;
 use crate::writer::{Writer, Log};
 use actix::utils::IntervalFunc;
 

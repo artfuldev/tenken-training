@@ -46,7 +46,7 @@ impl Message for Log {
 impl Handler<Log> for Writer {
     type Result = Result<(), WriterError>;
 
-    fn handle(&mut self, msg: Log, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: Log, _ctx: &mut Self::Context) -> Self::Result {
         match msg {
             Log::WriteAhead(message) => match self.file.write_all(message.as_bytes()) {
                 Ok(_) => Ok(()),
