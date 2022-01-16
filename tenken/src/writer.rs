@@ -1,22 +1,24 @@
-use std::{fs::{File, OpenOptions}, io::Write};
+use std::{fs::{File, OpenOptions}, io::{Write, BufWriter}};
 
 use actix::{Actor, Message, Handler};
 use thiserror::Error;
 
 pub(crate) struct Writer {
-    file: File
+    file: BufWriter<File>
 }
 
 impl Default for Writer {
     fn default() -> Self {
         Writer {
             file:
-                OpenOptions::new()
-                    .write(true)
-                    .append(true)
-                    .create(true)
-                    .open("db.dat")
-                    .unwrap()
+                BufWriter::new(
+                    OpenOptions::new()
+                        .write(true)
+                        .append(true)
+                        .create(true)
+                        .open("db.dat")
+                        .expect("Unable to open database")
+                )
         }
     }
 }
