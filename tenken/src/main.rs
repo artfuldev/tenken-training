@@ -47,9 +47,7 @@ async fn get_message(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let writer = Writer::default().start();
-    let db = Data::new(Tenken::new(writer.clone()).start());
-    std::thread::spawn(move || stakker::main(writer.clone()));
+    let db = Data::new(Tenken::new(Writer::default().start()).start());
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
