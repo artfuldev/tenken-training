@@ -31,6 +31,5 @@ impl Handler<WriteAtRequested> for Writer {
     fn handle(&mut self, msg: WriteAtRequested, _ctx: &mut Self::Context) -> Self::Result {
         self.file.seek(SeekFrom::Start(msg.offset)).expect("failed to seek to offset");
         self.file.write_all(&msg.data).expect("failed to write bytes to file");
-        self.file.flush().expect("failed to flush");
     }
 }
