@@ -14,11 +14,11 @@ generateEventId = function()
   end)
 end
 probeIds = {}
-for i=1,150000 do
+for i=1,450000 do
   probeIds[i] = generateProbeId(math.random(3, 100))
 end
 request = function()
-  probeId = probeIds[math.random(1, 150000)]
+  probeId = probeIds[math.random(1, 450000)]
   eventId = generateEventId()
   eventTime = os.time(os.date("!*t"))
   method = "POST"
