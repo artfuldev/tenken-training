@@ -11,16 +11,16 @@ encoding.
 
 So each payload is of the form:
 
-`|fixed_bytes (f bytes)|variable_size (4 bytes)|variable_bytes (v bytes)|`
+`|fixed_bytes (f bytes)|variable_size (8 bytes)|variable_bytes (v bytes)|`
 
 Since the maximum size of the payload is predetermined, the space for n probes
 can be pre-allocated. Every single partition of this structure follows the form:
 
-`|key_size (2 bytes)|key_bytes (k bytes)|event_timestamp (8 bytes)| probe_payload (f + 4 + v bytes)|`
+`|key_size (1 byte)|key_bytes (k bytes)|event_timestamp (8 bytes)| probe_payload (f + 8 + v bytes)|`
 
 When the database is started, it goes through all the partitions. Every
 partition starts with the key size. if the `key_size` is `0x00` it means it's an
-empty partition. By reading the first (2 + k + 8) bytes of every partition,
+empty partition. By reading the first (1 + k + 8) bytes of every partition,
 there is enough data about where to start reading the probe payload inside the
 partition. Every partition has an index, so coupled with the index, calculating
 the byte offset to read the probe payload is a simple arithmetic operation:
@@ -55,3 +55,6 @@ database has been exceeded.
 The timestamp and payload offset can be stored in a single unsigned u64 by
 combining 2 u32 parts into one with a 4 byte offset in order to save in-memory
 space for the index.
+
+Currently the payload hasn't been optimized, so the fixed size component is
+ignored.
