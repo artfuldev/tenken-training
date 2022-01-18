@@ -1,0 +1,12 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "tenken",
+    "datom",
+    "actix",
+    "evmap",
+    "fxhash",
+    "thiserror"
+  ]
+}
