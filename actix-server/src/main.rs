@@ -13,7 +13,6 @@ async fn main() -> std::io::Result<()> {
     let db =
         Data::new(
             Tenken::new(
-                "db.dat".to_string(),
                 1_500_000, // 1.5 million probes
                 2 * 1024, // 2 KB
                 false

@@ -12,6 +12,6 @@ async fn write_service(
     db: Data<Addr<Tenken>>,
 ) -> impl Responder {
     let (probe_id, _) = path.into_inner();
-    db.do_send(WriteRequested(probe_id, payload));
+    db.do_send(WriteRequested { key: probe_id, value: payload });
     HttpResponse::Accepted().body(())
 }

@@ -1067,6 +1067,7 @@ dependencies = [
  "actix-web",
  "evmap",
  "fxhash",
+ "lazy_static",
  "regex",
  "thiserror",
 ]
