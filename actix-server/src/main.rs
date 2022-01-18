@@ -13,8 +13,8 @@ async fn main() -> std::io::Result<()> {
     let db =
         Data::new(
             Tenken::new(
-                1_500_000, // 1.5 million probes
-                2 * 1024, // 2 KB
+                1_200_000,
+                2 * 1024,
                 false
             ).start()
         );
