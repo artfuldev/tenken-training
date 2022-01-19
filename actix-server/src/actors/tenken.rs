@@ -19,7 +19,6 @@ impl Tenken {
         let db_file = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(true)
             .open("db.dat")
             .expect("Unable to open database file");
         db_file
