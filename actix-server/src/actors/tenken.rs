@@ -1,11 +1,10 @@
 use std::collections::VecDeque;
 use std::fs::{OpenOptions};
-use std::io::{Seek, SeekFrom, Read};
 use actix::{ Actor, Context, Handler, Addr, ResponseActFuture, ActorFutureExt };
 use fxhash::FxHashMap;
 
+use crate::actors::transactor::{IndexedFileHandle, FileHandle};
 use crate::messages::{ LatestRequested, WriteRequested };
-use crate::actors::Writer;
 
 use super::Transactor;
 
@@ -16,32 +15,31 @@ pub struct Tenken {
 }
 
 impl Tenken {
-    pub fn new(capacity: u64, partition_size: u64, truncate: bool) -> Self {
-        const MAX_HEADER_SIZE: usize = 110;
-        let writer = Writer::new(capacity * partition_size, truncate).start();
+    pub fn new(capacity: u64) -> Self {
+        let db_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("db.dat")
+            .expect("Unable to open database file");
+        db_file
+            .set_len(capacity * 2048)
+            .expect("Unable to set length of database file");
         let mut vacant_spots = VecDeque::with_capacity(capacity.try_into().expect("capacity failed to fit in usize"));
         let mut transactors_by_key = FxHashMap::default();
-        let mut file = 
-            OpenOptions::new()
-                .read(true)
-                .open("db.dat")
-                .expect("Unable to read database file");
-        let mut header_buffer = [0; MAX_HEADER_SIZE];
         for index in 0..capacity {
-            let mut transactor = Transactor::new(index, partition_size, writer.clone());
-            file.seek(SeekFrom::Start(index * partition_size)).expect("seek partition failed");
-            file.read_exact(&mut header_buffer).expect("read header failed");
-            let key_size = usize::try_from(header_buffer[0]).expect("key bytes conversion to offset failed");
-            if key_size == 0 {
-                vacant_spots.push_back(transactor.start());
-                continue;
+            let mut file = IndexedFileHandle::new(index);
+            println!("created file handle {}", index);
+            match file.read_preface().unwrap_or(None) {
+                None => vacant_spots.push_back(Transactor::new(file).start()),
+                Some(preface) => {
+                    let mut transactor = Transactor::new(file);
+                    transactor.restore(preface.key.clone(), preface.timestamp);
+                    transactors_by_key.insert(preface.key.clone(), transactor.start());
+                }
             }
-            let key = String::from_utf8(header_buffer[1..(key_size + 1)].to_vec()).expect("key read failed");
-            let timestamp = u64::from_be_bytes(header_buffer[(key_size + 1)..(key_size + 9)].to_vec().try_into().expect(format!("failed to read timestamp for key {}", key).as_str()));
-            transactor.restore(key.clone(), timestamp);
-            transactors_by_key.insert(key, transactor.start());
         }
-        let dummy_transactor = Transactor::new(0, capacity, writer.clone()).start();
+        let dummy_transactor = Transactor::new(IndexedFileHandle::new(0)).start();
         let vacancies = vacant_spots.len();
         println!("vacant_spots {}", vacancies);
         println!("capacity {}", capacity);
