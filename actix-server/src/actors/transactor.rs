@@ -95,24 +95,25 @@ impl FileHandle<String, String> for IndexedFileHandle {
         if self.key_size == 0 {
             return Ok(None);
         }
-        self.file.read_exact_at(&mut buffer, self.offset + self.key_size + 9).map_err(|_| FileHandleError::ReadIntoBufferFailed)?;
-        let data_length = u64::from_be_bytes(buffer[0..8].try_into().map_err(|_| FileHandleError::ReadDataLengthFailed)?);
+        let header_offset = usize::try_from(self.key_size + 8).map_err(|_| FileHandleError::KeySizeConversionFailed)?;
+        self.file.read_exact_at(&mut buffer, self.offset).map_err(|_| FileHandleError::ReadIntoBufferFailed)?;
+        let data_length = u64::from_be_bytes(buffer[(header_offset)..(8 + header_offset)].try_into().map_err(|_| FileHandleError::ReadDataLengthFailed)?);
         let data_length_offset = usize::try_from(data_length).map_err(|_| FileHandleError::DataLengthOffsetConversionFailed)?;
-        let data = String::from_utf8(buffer[8..(8 + data_length_offset)].to_vec()).map_err(|_| FileHandleError::ReadDataAsStringFailed)?;
+        let data = String::from_utf8(buffer[(8 + header_offset)..(8 + header_offset + data_length_offset)].to_vec()).map_err(|_| FileHandleError::ReadDataAsStringFailed)?;
         Ok(Some(data))
     }
 
     fn read_preface(&mut self) -> FhResult<Option<EntryPreface<String>>> {
-        self.file.read_exact_at(&mut self.header_buffer, self.offset + self.key_size + 8).map_err(|_| FileHandleError::ReadIntoHeaderBufferFailed)?;
+        self.file.read_exact_at(&mut self.header_buffer, self.offset).map_err(|_| FileHandleError::ReadIntoHeaderBufferFailed)?;
         let key_size = self.header_buffer[0];
         self.key_size = u64::try_from(key_size).map_err(|_| FileHandleError::KeySizeConversionFailed)?;
         if key_size == 0 {
             return Ok(None);
         }
         let key_size_usize = usize::try_from(key_size).map_err(|_| FileHandleError::KeySizeConversionFailed)?;
-        let key_bytes = self.header_buffer[1..(1 + key_size_usize)].to_vec();
+        let key_bytes = self.header_buffer[1..key_size_usize].to_vec();
         let key = String::from_utf8(key_bytes).map_err(|_| FileHandleError::KeyReadFailed)?;
-        let timestamp_bytes = self.header_buffer[(key_size_usize + 1)..(key_size_usize + 9)].to_vec().try_into().map_err(|_| FileHandleError::TimestampReadFailed)?;
+        let timestamp_bytes = self.header_buffer[(key_size_usize)..(key_size_usize + 8)].to_vec().try_into().map_err(|_| FileHandleError::TimestampReadFailed)?;
         let timestamp = u64::from_be_bytes(timestamp_bytes);
         if timestamp == 0 {
             return Ok(None);
