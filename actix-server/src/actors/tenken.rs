@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fs::OpenOptions;
 use actix::{ Actor, Addr };
 use fxhash::FxHashMap;
+use stopwatch::Stopwatch;
 
 use crate::actors::transactor::IndexedFileHandle;
 use crate::messages::{ LatestRequested, WriteRequested };
@@ -15,6 +16,7 @@ pub struct Tenken {
 
 impl Tenken {
     pub fn new(capacity: u64) -> Self {
+        let mut stopwatch = Stopwatch::start_new();
         let db_file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -37,9 +39,11 @@ impl Tenken {
                 }
             }
         }
+        stopwatch.stop();
         let vacancies = vacant_spots.len();
         println!("vacant_spots {}", vacancies);
         println!("capacity {}", capacity);
+        println!("db initialized in {}ms", stopwatch.elapsed_ms());
         Tenken {
             vacant_spots,
             transactors_by_key,
