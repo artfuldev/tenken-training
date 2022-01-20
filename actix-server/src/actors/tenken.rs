@@ -18,6 +18,7 @@ impl Tenken {
     pub fn new(capacity: u64) -> Self {
         let mut stopwatch = Stopwatch::start_new();
         let db_file = OpenOptions::new()
+            .read(true)
             .write(true)
             .create(true)
             .open("db.dat")
