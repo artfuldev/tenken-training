@@ -3,7 +3,6 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 RUN apk add --no-cache musl-dev
 
 WORKDIR /bin/tenken
-RUN truncate -s 4096000000 ./db.dat
 
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
