@@ -106,7 +106,7 @@ impl FileHandle<String, String> for IndexedFileHandle {
         let timestamp = update.timestamp.to_be_bytes().to_vec();
         let data_length = update.value.len().to_be_bytes().to_vec();
         let data = update.value.as_bytes().to_vec();
-        self.file.write_at(&mut [timestamp, data_length, data].concat(), self.offset + self.key_size).map_err(|_| FileHandleError::UpdateWriteFailed)?;
+        self.file.write_at(&mut [timestamp, data_length, data].concat(), self.offset + self.key_size + 1).map_err(|_| FileHandleError::UpdateWriteFailed)?;
         Ok(())
     }
 }
