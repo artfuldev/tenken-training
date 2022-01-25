@@ -58,3 +58,23 @@ space for the index.
 
 Currently the payload hasn't been optimized, so the fixed size component is
 ignored.
+
+## Run
+
+For the `actix-server`, run:
+```sh
+cd actix-server
+cargo run --release
+```
+This starts a server listening on port `8080`
+
+## Test
+
+For the `actix-server`, run:
+```sh
+cd wrk-tests
+wrk --latency -t4 -c200 -d30s -s post.lua http://localhost:8080/
+```
+It uses 4 threads and 200 connections. The test script uses 250k unique probe
+ids across 4 threads so approximately 1 million unique probe ids. It's
+approximate as the threads can pick up the same probe ids by chance.
