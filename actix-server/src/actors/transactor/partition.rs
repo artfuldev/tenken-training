@@ -32,35 +32,25 @@ pub fn key_size(buffer: &[u8]) -> Option<KeySize> {
 }
 
 pub fn key(key_size: KeySize, buffer: &[u8]) -> Option<String> {
-    let key = String::from_utf8(buffer[1..=key_size.usize()].to_vec()).map_or(None, Some);
-    println!("{:?}", key);
-    key
+    String::from_utf8(buffer[1..=key_size.usize()].to_vec()).map_or(None, Some)
 }
 
 pub fn timestamp(key_size: KeySize, buffer: &[u8]) -> Option<u64> {
-    let timestamp = buffer[(key_size.usize() + 1)..=(key_size.usize() + 8)]
+    buffer[(key_size.usize() + 1)..=(key_size.usize() + 8)]
         .try_into()
-        .map_or(None, |x| Some(u64::from_be_bytes(x)));
-    println!("{:?}", timestamp);
-    timestamp
+        .map_or(None, |x| Some(u64::from_be_bytes(x)))
 }
 
 pub fn value_size(key_size: KeySize, buffer: &[u8]) -> Option<u64> {
-    let value_size = buffer[(key_size.usize() + 9)..=(key_size.usize() + 16)]
+    buffer[(key_size.usize() + 9)..=(key_size.usize() + 16)]
         .try_into()
-        .map_or_else(|x| {
-            println!("failed {:?}", x);
-            None }, |x| Some(u64::from_be_bytes(x)));
-    println!("value_size {:?}", value_size);
-    value_size
+        .map_or(None, |x| Some(u64::from_be_bytes(x)))
 }
 
 pub fn value(key_size: KeySize, value_size: u64, buffer: &[u8]) -> Option<String> {
-    let value = String::from_utf8(
+    String::from_utf8(
         buffer[(key_size.usize() + 17)..=(key_size.usize() + (value_size as usize) + 16)]
             .to_vec())
-        .map_or(None, Some);
-    println!("{:?}", value);
-    value
+        .map_or(None, Some)
 }
 
