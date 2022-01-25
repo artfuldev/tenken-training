@@ -4,7 +4,7 @@ use actix::{ Actor, Addr };
 use fxhash::FxHashMap;
 use stopwatch::Stopwatch;
 
-use crate::actors::transactor::IndexedFileHandle;
+use crate::actors::transactor::{IndexedFileHandle, PARTITION_SIZE};
 use crate::messages::{ LatestRequested, WriteRequested };
 
 use super::Transactor;
@@ -24,7 +24,7 @@ impl Tenken {
             .open("db.dat")
             .expect("Unable to open database file");
         db_file
-            .set_len(capacity * 2048)
+            .set_len(capacity * PARTITION_SIZE as u64)
             .expect("Unable to set length of database file");
         let mut vacant_spots = VecDeque::with_capacity(capacity.try_into().expect("capacity failed to fit in usize"));
         let mut transactors_by_key = FxHashMap::default();
