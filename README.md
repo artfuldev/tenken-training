@@ -18,6 +18,16 @@ can be pre-allocated. Every single partition of this structure follows the form:
 
 `|key_size (1 byte)|key_bytes (k bytes)|event_timestamp (8 bytes)| probe_payload (f + 8 + v bytes)|`
 
+Here's a table detailing offsets:
+
+| Item       | Start Index | Size | End Index      | End Index  | Slice        |
+|------------|-------------|------|----------------|------------|--------------|
+| Key Size   | 0           | 1    | 1 + 0 - 1      | 0          | 0..=0         |
+| Key        | 1           | k    | 1 + k - 1      | k          | 1..=k         |
+| Timestamp  | k + 1       | 8    | k + 1 + 8 - 1  | k + 8      | k+1..=k+8     |
+| Value Size | k + 9       | 8    | k + 9 + 8 - 1  | k + 16     | k+9..=k+16    |
+| Value      | k + 17      | v    | k + 17 + v - 1 | k + v + 16 | k+17..=k+v+16 |
+
 When the database is started, it goes through all the partitions. Every
 partition starts with the key size. if the `key_size` is `0x00` it means it's an
 empty partition. By reading the first (1 + k + 8) bytes of every partition,

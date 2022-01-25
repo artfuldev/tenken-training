@@ -1,10 +1,3 @@
-/// * Item	Start Index	Size	End Index	End Index	Slice
-///  * Key Size	0	1	1 + 0 - 1	0	0..0
-///  * Key	1	k	1 + k - 1	k	1..=k
-///  * Timestamp	k + 1	8	k + 1 + 8 - 1	k + 8	k+1..=k+8
-///  * Value Size	k + 9	8	k + 9 + 8 - 1	k + 16	k+9..=k+16
-///  * Value	k + 17	v	k + 17 + v - 1	k + v + 16	k+17..=k+v+16
-
 pub const PARTITION_SIZE: usize = 2048;
 pub const HEADER_SIZE: usize = 109;
 
