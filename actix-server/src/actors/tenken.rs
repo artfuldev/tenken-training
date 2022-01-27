@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::fs::OpenOptions;
+use parking_lot::Mutex;
 use actix::{ Actor, Addr };
 use fxhash::FxHashMap;
 use stopwatch::Stopwatch;
@@ -10,8 +11,8 @@ use crate::messages::{ LatestRequested, WriteRequested };
 use super::Transactor;
 
 pub struct Tenken {
-    transactors_by_key: FxHashMap<String, Addr<Transactor>>,
-    vacant_spots: VecDeque<Addr<Transactor>>,
+    transactors_by_key: Mutex<FxHashMap<String, Addr<Transactor>>>,
+    vacant_spots: Mutex<VecDeque<Addr<Transactor>>>,
 }
 
 impl Tenken {
@@ -46,13 +47,13 @@ impl Tenken {
         println!("capacity {}", capacity);
         println!("db initialized in {}ms", stopwatch.elapsed_ms());
         Tenken {
-            vacant_spots,
-            transactors_by_key,
+            vacant_spots: Mutex::new(vacant_spots),
+            transactors_by_key: Mutex::new(transactors_by_key),
         }
     }
 
     pub async fn get(&self, key: String) -> Option<String> {
-        match self.transactors_by_key.get(&key) {
+        match self.transactors_by_key.lock().get(&key) {
             Some(t) =>
                 match t.send(LatestRequested(key)).await {
                     Ok(x) => x,
@@ -62,13 +63,14 @@ impl Tenken {
         }
     }
 
-    pub fn put(&mut self, key: String, value: String) -> () {
-        match self.transactors_by_key.get(&key) {
+    pub fn put(&self, key: String, value: String) -> () {
+        let mut lookup = self.transactors_by_key.lock();
+        match lookup.get(&key) {
             None => {
-                match self.vacant_spots.pop_front() {
+                match self.vacant_spots.lock().pop_front() {
                     None => (),
                     Some(addr) => {
-                        self.transactors_by_key.insert(key.clone(), addr.clone());
+                        lookup.insert(key.clone(), addr.clone());
                         addr.do_send(WriteRequested { key, value });
                     }
                 }

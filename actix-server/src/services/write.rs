@@ -1,4 +1,3 @@
-use std::sync::Mutex;
 use actix_web::{post, Responder};
 use actix_web::web::{Path, HttpResponse, Data};
 use crate::actors::Tenken;
@@ -7,9 +6,9 @@ use crate::actors::Tenken;
 async fn write_service(
     path: Path<(String, String)>,
     payload: String,
-    db: Data<Mutex<Tenken>>,
+    db: Data<Tenken>,
 ) -> impl Responder {
     let (probe_id, _) = path.into_inner();
-    db.lock().unwrap().put(probe_id, payload);
+    db.put(probe_id, payload);
     HttpResponse::Accepted().body(())
 }

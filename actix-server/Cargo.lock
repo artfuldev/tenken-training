@@ -1204,6 +1204,7 @@ dependencies = [
  "evmap",
  "fxhash",
  "lazy_static",
+ "parking_lot",
  "regex",
  "stopwatch",
  "thiserror",
