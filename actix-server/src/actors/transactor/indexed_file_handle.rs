@@ -48,7 +48,7 @@ impl IndexedFileHandle {
     }
 
     fn write_at(&self, buffer: &[u8], offset: u64) -> FhResult<()> {
-        self.file.write_at(&buffer , self.offset + offset).map_err(|_| FileHandleError::KeyWriteFailed)?;
+        self.file.write_at(&buffer , self.offset + offset).map_err(|_| FileHandleError::WriteBufferFailed)?;
         Ok(())
     }
     

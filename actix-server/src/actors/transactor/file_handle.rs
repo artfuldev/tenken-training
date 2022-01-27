@@ -8,10 +8,8 @@ pub enum FileHandleError {
     ReadIntoBufferFailed,
     #[error("failed to read into header buffer")]
     ReadIntoHeaderBufferFailed,
-    #[error("failed to write key")]
-    KeyWriteFailed,
-    #[error("failed to write update")]
-    UpdateWriteFailed
+    #[error("failed to write buffer")]
+    WriteBufferFailed
 }
 
 pub type FhResult<T> = Result<T, FileHandleError>;
