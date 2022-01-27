@@ -32,6 +32,26 @@ impl IndexedFileHandle {
             value_size(key_size, buffer).and_then(|value_size|
                 value(key_size, value_size, buffer)))
     }
+
+    fn key_bytes(&mut self, key: &String) -> Vec<u8> {
+        self.key_size = KeySize::try_new(key.len() as u8);
+        let key_size = vec![self.key_size.map(|k| k.value()).unwrap_or(0)];
+        let key_bytes = key.as_bytes().to_vec();
+        [key_size, key_bytes].concat()
+    }
+
+    fn update_bytes(&self, update: EntryUpdate<String>) -> Vec<u8> {
+        let timestamp = update.timestamp.to_be_bytes().to_vec();
+        let data_length = update.value.len().to_be_bytes().to_vec();
+        let data = update.value.as_bytes().to_vec();
+        [timestamp, data_length, data].concat()
+    }
+
+    fn write_at(&self, buffer: &[u8], offset: u64) -> FhResult<()> {
+        self.file.write_at(&buffer , self.offset + offset).map_err(|_| FileHandleError::KeyWriteFailed)?;
+        Ok(())
+    }
+    
 }
 
 impl FileHandle<String, String> for IndexedFileHandle {
@@ -59,24 +79,19 @@ impl FileHandle<String, String> for IndexedFileHandle {
     }
 
     fn write(&mut self, entry: Entry<String, String>) -> FhResult<()> {
-        self.write_key(entry.key)?;
-        self.write_update(EntryUpdate { timestamp: entry.timestamp, value: entry.value })?;
-        Ok(())
+        let key = self.key_bytes(&entry.key);
+        let update = self.update_bytes(entry.into());
+        self.write_at(&[key, update].concat(), 0)
     }
     
     fn write_key(&mut self, key: String) -> FhResult<()> {
-        self.key_size = KeySize::try_new(key.len() as u8);
-        let key_size = vec![self.key_size.map(|k| k.value()).unwrap_or(0)];
-        let key_bytes = key.as_bytes().to_vec();
-        self.file.write_at(&mut [key_size, key_bytes].concat(), self.offset).map_err(|_| FileHandleError::KeyWriteFailed)?;
-        Ok(())
+        let buffer = self.key_bytes(&key);
+        self.write_at(&buffer , 0)
     }
 
     fn write_update(&self, update: EntryUpdate<String>) -> FhResult<()> {
-        let timestamp = update.timestamp.to_be_bytes().to_vec();
-        let data_length = update.value.len().to_be_bytes().to_vec();
-        let data = update.value.as_bytes().to_vec();
-        self.file.write_at(&mut [timestamp, data_length, data].concat(), self.offset + self.key_size.clone().map(|k| k.value() as u64).unwrap_or(0) + 1).map_err(|_| FileHandleError::UpdateWriteFailed)?;
-        Ok(())
+        let buffer = self.update_bytes(update);
+        let offset = self.key_size.clone().map(|k| k.value() as u64).unwrap_or(0) + 1;
+        self.write_at(&buffer, offset)
     }
 }

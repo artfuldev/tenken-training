@@ -16,3 +16,9 @@ pub struct EntryUpdate<V> {
     pub timestamp: u64,
     pub value: V
 }
+
+impl <K, V> From<Entry<K, V>> for EntryUpdate<V> {
+    fn from(entry: Entry<K, V>) -> Self {
+        EntryUpdate { timestamp: entry.timestamp, value: entry.value }
+    }
+}
