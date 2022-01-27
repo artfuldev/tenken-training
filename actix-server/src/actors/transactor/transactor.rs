@@ -29,15 +29,21 @@ impl Transactor {
         TIMESTAMP.captures(&value).unwrap().get(1).unwrap().as_str().parse::<u64>().unwrap()
     }
 
-    fn store(&mut self, next_key: String, next_value: String) -> () {
-        let next_timestamp = self.get_timestamp(&next_value);
-        if let Some((key, timestamp)) = &self.state {
-            if next_key != *key || next_timestamp <= *timestamp {
-                return;
+    fn store(&mut self, key: String, value: String) -> () {
+        let timestamp = self.get_timestamp(&value);
+        match &self.state {
+            None => {
+                self.state = Some((key.clone(), timestamp.clone()));
+                self.file.write(Entry { key, timestamp, value });
+            },
+            Some((current_key, current_timestamp)) => {
+                if key != *current_key || timestamp <= *current_timestamp {
+                    return;
+                }    
+                self.state = Some((key.clone(), timestamp.clone()));
+                self.file.write_update(EntryUpdate { timestamp, value });
             }
         }
-        self.state = Some((next_key.clone(), next_timestamp.clone()));
-        self.file.write(Entry { key: next_key, timestamp: next_timestamp, value: next_value });
     }
 }
 
