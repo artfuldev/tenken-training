@@ -83,11 +83,6 @@ impl FileHandle<String, String> for IndexedFileHandle {
         let update = self.update_bytes(entry.into());
         self.write_at(&[key, update].concat(), 0)
     }
-    
-    fn write_key(&mut self, key: String) -> FhResult<()> {
-        let buffer = self.key_bytes(&key);
-        self.write_at(&buffer , 0)
-    }
 
     fn write_update(&self, update: EntryUpdate<String>) -> FhResult<()> {
         let buffer = self.update_bytes(update);
