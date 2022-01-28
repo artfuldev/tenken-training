@@ -27,14 +27,18 @@ impl Transactor {
         match &self.state {
             None => {
                 self.state = Some((key.clone(), timestamp.clone()));
-                self.file.write(Entry { key, timestamp, value });
+                self.file
+                    .write(Entry { key, timestamp, value })
+                    .expect("failed to write entry");
             },
             Some((_, current_timestamp)) => {
                 if timestamp <= *current_timestamp {
                     return;
                 }    
                 self.state = Some((key, timestamp.clone()));
-                self.file.write_update(EntryUpdate { timestamp, value });
+                self.file
+                    .write_update(EntryUpdate { timestamp, value })
+                    .expect("failed to update entry");
             }
         }
     }
