@@ -3,6 +3,7 @@ mod entry;
 mod file_handle;
 mod indexed_file_handle;
 mod transactor;
+mod payload;
 
 pub use transactor::Transactor;
 pub use indexed_file_handle::IndexedFileHandle;

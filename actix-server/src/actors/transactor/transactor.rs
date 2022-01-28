@@ -1,11 +1,10 @@
 use actix::{Actor, Context, Handler};
-use regex::Regex;
-use lazy_static::lazy_static;
 
 use crate::{messages::{WriteRequested, LatestRequested}};
 use super::entry::*;
 use super::file_handle::*;
 use super::indexed_file_handle::*;
+use super::payload::*;
 
 pub struct Transactor {
     pub state: Option<(String, u64)>,
@@ -22,15 +21,9 @@ impl Transactor {
         }
     }
 
-    fn get_timestamp(&self, value: &String) -> u64 {
-        lazy_static! {
-            static ref TIMESTAMP: Regex = Regex::new("\"eventTransmissionTime\":\\s*(\\d+),").unwrap();
-        }
-        TIMESTAMP.captures(&value).unwrap().get(1).unwrap().as_str().parse::<u64>().unwrap()
-    }
-
-    fn store(&mut self, key: String, value: String) -> () {
-        let timestamp = self.get_timestamp(&value);
+    fn store(&mut self, key: String, original_value: String) -> () {
+        let timestamp = get_timestamp(&original_value);
+        let value = with_received_time(&original_value);
         match &self.state {
             None => {
                 self.state = Some((key.clone(), timestamp.clone()));
