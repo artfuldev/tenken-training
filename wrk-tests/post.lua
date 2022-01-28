@@ -13,7 +13,7 @@ generateEventId = function()
       return string.format('%x', v)
   end)
 end
-probeCount = 450000
+probeCount = 250000
 onceEvery = 10
 probeIds = {}
 rps = probeCount / onceEvery
