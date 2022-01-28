@@ -29,8 +29,8 @@ impl Transactor {
                 self.state = Some((key.clone(), timestamp.clone()));
                 self.file.write(Entry { key, timestamp, value });
             },
-            Some((current_key, current_timestamp)) => {
-                if key != *current_key || timestamp <= *current_timestamp {
+            Some((_, current_timestamp)) => {
+                if timestamp <= *current_timestamp {
                     return;
                 }    
                 self.state = Some((key, timestamp.clone()));
@@ -55,17 +55,7 @@ impl Handler<WriteRequested> for Transactor {
 impl Handler<LatestRequested> for Transactor {
     type Result = Option<String>;
 
-    fn handle(&mut self, msg: LatestRequested, _ctx: &mut Self::Context) -> Self::Result {
-        let LatestRequested(requested_key) = msg;
-        match &self.state {
-            None => None,
-            Some((key, _)) => {
-                if *key != requested_key {
-                    None
-                } else {
-                    self.file.read_value().unwrap_or(None)
-                }
-            }
-        }
+    fn handle(&mut self, _msg: LatestRequested, _ctx: &mut Self::Context) -> Self::Result {
+        self.state.as_ref().and_then(|_| self.file.read_value().unwrap_or(None))
     }
 }

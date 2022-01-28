@@ -55,7 +55,7 @@ impl Tenken {
     pub async fn get(&self, key: String) -> Option<String> {
         match self.transactors_by_key.lock().get(&key) {
             Some(t) =>
-                match t.send(LatestRequested(key)).await {
+                match t.send(LatestRequested).await {
                     Ok(x) => x,
                     Err(_) => None
                 },
