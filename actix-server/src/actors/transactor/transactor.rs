@@ -40,7 +40,7 @@ impl Transactor {
                 if key != *current_key || timestamp <= *current_timestamp {
                     return;
                 }    
-                self.state = Some((key.clone(), timestamp.clone()));
+                self.state = Some((key, timestamp.clone()));
                 self.file.write_update(EntryUpdate { timestamp, value });
             }
         }
