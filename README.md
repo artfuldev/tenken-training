@@ -71,6 +71,19 @@ ignored.
 
 ## Run
 
+### Setting file descriptor limits
+
+This solution uses a lot of file descriptors, so first we need to update the
+limits on file descriptors before running. We need to change the kernel limits,
+process soft and hard limits, and then the current shell limit:
+```sh
+sudo sysctl -w kern.maxfiles=2000000
+sudo launchctl limit maxfiles 2000000 unlimited
+ulimit -n 2000000
+```
+
+### Starting up the server
+
 For the `actix-server`, run:
 ```sh
 cd actix-server
@@ -80,11 +93,14 @@ This starts a server listening on port `8080`
 
 ## Test
 
+### Running load tests
+
 For the `actix-server`, run:
 ```sh
 cd wrk-tests
-wrk --latency -t4 -c200 -d30s -s post.lua http://localhost:8080/
+wrk --latency -t10 -c100 -d60m -s post.lua http://localhost:8080
 ```
-It uses 4 threads and 200 connections. The test script uses 250k unique probe
-ids across 4 threads so approximately 1 million unique probe ids. It's
-approximate as the threads can pick up the same probe ids by chance.
+It uses 10 threads and 100 connections. The test script uses 1000k unique probe
+ids across 10 threads so approximately 1 million unique probe ids. It's
+approximate as the threads can pick up the same probe ids by chance. This is
+usually enough to get around 950k+ unique probe ids.
