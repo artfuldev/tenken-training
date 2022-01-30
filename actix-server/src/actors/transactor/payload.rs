@@ -1,12 +1,8 @@
-use regex::Regex;
-use lazy_static::lazy_static;
 use std::time::{SystemTime, UNIX_EPOCH};
+use gjson::get;
 
 pub fn get_timestamp(value: &String) -> u64 {
-    lazy_static! {
-        static ref TIMESTAMP: Regex = Regex::new("\"eventTransmissionTime\":\\s*(\\d+),").unwrap();
-    }
-    TIMESTAMP.captures(&value).unwrap().get(1).unwrap().as_str().parse::<u64>().unwrap()
+    get(value, "eventTransmissionTime").u64()
 }
 
 pub fn with_received_time(value: &String) -> String {
