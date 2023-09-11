@@ -100,7 +100,7 @@ For the `actix-server`, run:
 cd wrk-tests
 wrk --latency -t10 -c100 -d60m -s post.lua http://localhost:8080
 ```
-It uses 10 threads and 100 connections. The test script uses 1000k unique probe
+It uses 10 threads and 100 connections. The test script uses 100k unique probe
 ids across 10 threads so approximately 1 million unique probe ids. It's
 approximate as the threads can pick up the same probe ids by chance. This is
 usually enough to get around 950k+ unique probe ids.
