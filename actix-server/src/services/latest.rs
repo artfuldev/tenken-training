@@ -1,5 +1,5 @@
-use actix_web::{get, Responder};
-use actix_web::web::{Path, HttpResponse, Data};
+use actix_web::{get, Responder, HttpResponse};
+use actix_web::web::{Path, Data};
 
 use crate::actors::Tenken;
 
